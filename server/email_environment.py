@@ -24,6 +24,7 @@ from openenv.core.env_server.types import Observation, State
 from server.email_data import EMAIL_BY_ID, EMAILS, TASK_EMAIL_GROUPS
 from server.tasks import (
     TASKS,
+    _clamp,
     grade_classify,
     grade_reply,
     grade_triage,
@@ -146,19 +147,19 @@ class EmailTriageEnvironment(MCPEnvironment):
             env._state.step_count += 1
 
             correct = EMAIL_BY_ID.get(email_id, {}).get("category", "?")
-            if score == 1.0:
+            if score >= _clamp(1.0):
                 return (
-                    f"✓ Correct! Category '{cat_clean}' is right. Score: 1.00\n"
+                    f"✓ Correct! Category '{cat_clean}' is right. Score: {score:.2f}\n"
                     f"Episode complete."
                 )
-            elif score > 0:
+            elif score > _clamp(0.0):
                 return (
                     f"✗ Partially correct. You said '{cat_clean}', correct was '{correct}'. "
                     f"Related category gets partial credit. Score: {score:.2f}\nEpisode complete."
                 )
             else:
                 return (
-                    f"✗ Incorrect. You said '{cat_clean}', correct was '{correct}'. Score: 0.00\n"
+                    f"✗ Incorrect. You said '{cat_clean}', correct was '{correct}'. Score: {score:.2f}\n"
                     f"Episode complete."
                 )
 
@@ -355,7 +356,7 @@ class EmailTriageEnvironment(MCPEnvironment):
 
         return Observation(
             done=False,
-            reward=0.0,
+            reward=_clamp(0.0),
             metadata={
                 "task_name": self._task_name,
                 "message": message,
@@ -368,7 +369,7 @@ class EmailTriageEnvironment(MCPEnvironment):
         """Handle non-MCP actions (fallback)."""
         return Observation(
             done=self._done,
-            reward=self._cumulative_score,
+            reward=_clamp(self._cumulative_score),
             metadata={"error": f"Unknown action type: {type(action).__name__}. Use MCP tool calls."},
         )
 
@@ -380,20 +381,20 @@ class EmailTriageEnvironment(MCPEnvironment):
         obs = super().step(action, timeout_s=timeout_s, **kwargs)
 
         # Attach current reward/done to every observation
-        obs.reward = self._step_rewards[-1] if self._step_rewards else 0.0
+        obs.reward = _clamp(self._step_rewards[-1] if self._step_rewards else 0.0)
         obs.done = self._done
         obs.metadata = obs.metadata or {}
-        obs.metadata["cumulative_score"] = self._cumulative_score
+        obs.metadata["cumulative_score"] = _clamp(self._cumulative_score)
         obs.metadata["step_count"] = self._state.step_count
         return obs
 
     async def step_async(self, action: Any, timeout_s: Optional[float] = None, **kwargs: Any) -> Observation:
         """Async step used by WebSocket handler."""
         obs = await super().step_async(action, timeout_s=timeout_s, **kwargs)
-        obs.reward = self._step_rewards[-1] if self._step_rewards else 0.0
+        obs.reward = _clamp(self._step_rewards[-1] if self._step_rewards else 0.0)
         obs.done = self._done
         obs.metadata = obs.metadata or {}
-        obs.metadata["cumulative_score"] = self._cumulative_score
+        obs.metadata["cumulative_score"] = _clamp(self._cumulative_score)
         obs.metadata["step_count"] = self._state.step_count
         return obs
 

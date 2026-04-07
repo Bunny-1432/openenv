@@ -223,7 +223,7 @@ async def run_task(client: OpenAI, env: EmailTriageEnv, task_name: str) -> dict:
         except Exception:
             score = max(rewards) if rewards else 0.0
 
-        score   = max(0.0, min(1.0, score))
+        score   = max(0.01, min(0.99, score))
         success = score >= SUCCESS_THRESHOLD
 
     except Exception as exc:

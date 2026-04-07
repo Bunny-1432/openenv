@@ -13,6 +13,15 @@ from typing import Any
 
 from server.email_data import CATEGORIES, EMAIL_BY_ID, TASK_EMAIL_GROUPS
 
+# Scores must be STRICTLY between 0 and 1 per the OpenEnv spec.
+_SCORE_MIN = 0.01
+_SCORE_MAX = 0.99
+
+
+def _clamp(score: float) -> float:
+    """Clamp a raw score into the open interval (0, 1) as required by OpenEnv."""
+    return max(_SCORE_MIN, min(_SCORE_MAX, float(score)))
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Task 1 – classify_email  (Easy)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -48,14 +57,14 @@ def grade_classify(email_id: str, submitted_category: str, read_email: bool = Tr
     """
     email = EMAIL_BY_ID.get(email_id)
     if email is None:
-        return 0.0
+        return _clamp(0.0)
 
     correct = email["category"]
     submitted = submitted_category.strip().lower()
 
     if submitted == correct:
         # Full score; small bonus for reading first
-        return 1.0
+        return _clamp(1.0)
     # Partial credit for related categories
     partial_groups = [
         {"urgent", "security"},
@@ -64,8 +73,8 @@ def grade_classify(email_id: str, submitted_category: str, read_email: bool = Tr
     ]
     for group in partial_groups:
         if submitted in group and correct in group:
-            return 0.3  # Wrong but related category
-    return 0.0
+            return _clamp(0.3)  # Wrong but related category
+    return _clamp(0.0)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -113,7 +122,7 @@ def grade_triage(submissions: dict[str, dict[str, Any]], batch_ids: list[str]) -
         Score in [0.0, 1.0]
     """
     if not submissions or not batch_ids:
-        return 0.0
+        return _clamp(0.0)
 
     # Priority ranking score
     predicted_priorities = []
@@ -148,10 +157,10 @@ def grade_triage(submissions: dict[str, dict[str, Any]], batch_ids: list[str]) -
 
     label_score = label_correct / total if total > 0 else 0.0
 
-    return round(
+    return _clamp(round(
         PRIORITY_ORDER_WEIGHT * priority_score + LABEL_ACCURACY_WEIGHT * label_score,
         4,
-    )
+    ))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -202,7 +211,7 @@ def grade_reply(email_id: str, reply_text: str) -> float:
     """
     email = EMAIL_BY_ID.get(email_id)
     if email is None or not reply_text:
-        return 0.0
+        return _clamp(0.0)
 
     reply_lower = reply_text.lower()
     words = reply_text.split()
@@ -251,7 +260,7 @@ def grade_reply(email_id: str, reply_text: str) -> float:
         + 0.20 * length_score
         + 0.10 * structure_score
     )
-    return round(min(1.0, max(0.0, score)), 4)
+    return _clamp(round(score, 4))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
